@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نظام محاسبة مكتب الرحلات السياحية</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --ink:#20262A;
+  --ink-soft:#5B6663;
+  --paper:#F6F3EA;
+  --paper-raised:#FFFFFF;
+  --line:#DED7C6;
+  --petrol:#173A3F;
+  --petrol-deep:#0F2629;
+  --sand:#C8935A;
+  --sand-deep:#A9743C;
+  --good:#3F7D58;
+  --good-bg:#E8F1EA;
+  --bad:#B4482F;
+  --bad-bg:#F7E9E4;
+  --radius-card: 4px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:'Tajawal',sans-serif;
+  background:var(--paper);
+  color:var(--ink);
+  min-height:100vh;
+  font-size:15px;
+  line-height:1.6;
+}
+h1,h2,h3,h4{margin:0;font-weight:700;}
+button{font-family:inherit;cursor:pointer;}
+input,select,textarea{font-family:inherit;}
+::selection{background:var(--sand);color:#fff;}
+
+/* ---------- Layout ---------- */
+#app{display:flex;min-height:100vh;}
+.sidebar{
+  width:236px;flex:0 0 236px;
+  background:var(--petrol);
+  color:#EFE9DA;
+  display:flex;flex-direction:column;
+  position:sticky;top:0;height:100vh;
+}
+.sidebar-brand{
+  padding:26px 20px 18px;
+  border-bottom:1px solid rgba(255,255,255,.1);
+}
+.sidebar-brand .mark{
+  font-size:22px;font-weight:900;color:#fff;letter-spacing:.3px;
+}
+.sidebar-brand .sub{font-size:12px;color:#A9BDBE;margin-top:4px;}
+.nav{flex:1;padding:14px 10px;overflow-y:auto;}
+.nav-group-label{
+  font-size:11px;color:#7F9A97;padding:14px 12px 6px;letter-spacing:.5px;
+}
+.nav-item{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 12px;margin:2px 0;border-radius:3px;
+  color:#D8D2C0;text-decoration:none;font-size:14px;
+  border-right:3px solid transparent;
+  background:none;border-top:none;border-left:none;border-bottom:none;width:100%;text-align:right;
+}
+.nav-item:hover{background:rgba(255,255,255,.06);color:#fff;}
+.nav-item.active{background:rgba(200,147,90,.16);color:#fff;border-right-color:var(--sand);font-weight:500;}
+.nav-icon{width:18px;height:18px;flex:0 0 18px;opacity:.9;}
+.sidebar-foot{
+  padding:14px 16px;border-top:1px solid rgba(255,255,255,.1);
+  font-size:12.5px;color:#A9BDBE;
+}
+.sidebar-foot .who{color:#fff;font-weight:500;margin-bottom:2px;}
+.sidebar-foot button{
+  margin-top:8px;background:none;border:1px solid rgba(255,255,255,.25);
+  color:#EFE9DA;padding:6px 10px;border-radius:3px;font-size:12.5px;width:100%;
+}
+.sidebar-foot button:hover{background:rgba(255,255,255,.1);}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column;}
+.topbar{
+  padding:18px 30px;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--paper-raised);
+}
+.topbar h1{font-size:20px;}
+.topbar .sub{color:var(--ink-soft);font-size:13px;margin-top:2px;}
+.content{padding:26px 30px 60px;flex:1;}
+
+/* ---------- Buttons ---------- */
+.btn{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:9px 16px;border-radius:3px;border:1px solid transparent;
+  font-size:13.5px;font-weight:500;background:var(--petrol);color:#fff;
+  transition:background .15s;
+}
+.btn:hover{background:var(--petrol-deep);}
+.btn.secondary{background:transparent;color:var(--petrol);border-color:var(--line);}
+.btn.secondary:hover{background:#EFE9DC;}
+.btn.accent{background:var(--sand);color:#fff;}
+.btn.accent:hover{background:var(--sand-deep);}
+.btn.danger{background:transparent;color:var(--bad);border-color:#E3C9C0;}
+.btn.danger:hover{background:var(--bad-bg);}
+.btn.small{padding:5px 10px;font-size:12.5px;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+
+/* ---------- Cards / stat blocks ---------- */
+.stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:26px;}
+.stat{
+  background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-card);
+  padding:18px 20px;
+}
+.stat .label{font-size:12.5px;color:var(--ink-soft);margin-bottom:8px;}
+.stat .value{font-size:26px;font-weight:900;color:var(--petrol);}
+.stat .value.bad{color:var(--bad);}
+.stat .value.good{color:var(--good);}
+
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;}
+.section-head h2{font-size:17px;}
+.section-head .actions{display:flex;gap:8px;flex-wrap:wrap;}
+
+.card{background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-card);}
+.card-pad{padding:20px;}
+
+/* trip grid */
+.trip-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px;margin-bottom:10px;}
+.trip-card{
+  background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-card);
+  padding:16px 18px;border-right:4px solid var(--sand);cursor:pointer;
+}
+.trip-card.main{border-right-color:var(--petrol);}
+.trip-card.status-منتهية{border-right-color:#8C8577;}
+.trip-card:hover{box-shadow:0 2px 10px rgba(0,0,0,.06);}
+.trip-card h3{font-size:15px;margin-bottom:2px;}
+.trip-card .dest{color:var(--ink-soft);font-size:12.5px;margin-bottom:12px;}
+.trip-card .line{display:flex;justify-content:space-between;font-size:13px;padding:3px 0;}
+.trip-card .line .l{color:var(--ink-soft);}
+.trip-card .net{
+  margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);
+  display:flex;justify-content:space-between;font-weight:700;font-size:14px;
+}
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:500;}
+.badge.قادمة{background:#E7EEF7;color:#2C5A8A;}
+.badge.جارية{background:var(--good-bg);color:var(--good);}
+.badge.منتهية{background:#EDEAE2;color:#77705F;}
+
+/* ---------- Tables ---------- */
+table{width:100%;border-collapse:collapse;font-size:13.5px;}
+th{
+  text-align:right;padding:10px 12px;background:#EFEAE0;color:var(--ink-soft);
+  font-weight:500;font-size:12.5px;border-bottom:1px solid var(--line);white-space:nowrap;
+}
+td{padding:10px 12px;border-bottom:1px solid #EEE8DA;vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tbody tr:hover{background:#FBF9F3;}
+.num{font-variant-numeric:tabular-nums;}
+.row-actions{display:flex;gap:6px;justify-content:flex-end;}
+.icon-btn{
+  border:1px solid var(--line);background:#fff;border-radius:3px;padding:5px 8px;font-size:12px;color:var(--ink-soft);
+}
+.icon-btn:hover{background:#F1EDE2;}
+.icon-btn.danger{color:var(--bad);border-color:#E3C9C0;}
+.icon-btn.danger:hover{background:var(--bad-bg);}
+.empty-row td{text-align:center;color:var(--ink-soft);padding:34px 12px;}
+
+/* ---------- Forms / modal ---------- */
+.overlay{
+  position:fixed;inset:0;background:rgba(15,25,27,.45);display:flex;align-items:center;justify-content:center;
+  z-index:60;padding:20px;
+}
+.modal{
+  background:#fff;border-radius:6px;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;
+  box-shadow:0 10px 40px rgba(0,0,0,.2);
+}
+.modal-head{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;}
+.modal-head h3{font-size:16px;}
+.modal-close{background:none;border:none;font-size:20px;color:var(--ink-soft);line-height:1;}
+.modal-body{padding:20px 22px;}
+.modal-foot{padding:16px 22px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-start;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:13px;color:var(--ink-soft);margin-bottom:6px;}
+.field input,.field select,.field textarea{
+  width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:3px;font-size:14px;background:#FCFAF5;
+}
+.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--sand);outline-offset:0;border-color:var(--sand);}
+.field textarea{resize:vertical;min-height:64px;}
+.field-error{color:var(--bad);font-size:12px;margin-top:4px;}
+.help-note{
+  background:#F1EEE2;border:1px solid var(--line);border-radius:4px;padding:12px 14px;font-size:12.5px;color:var(--ink-soft);margin-bottom:16px;
+}
+
+/* ---------- Auth screen ---------- */
+.auth-wrap{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--petrol);
+  padding:20px;
+}
+.auth-box{background:#fff;border-radius:6px;width:100%;max-width:400px;padding:34px 30px;}
+.auth-box .mark{font-size:22px;font-weight:900;color:var(--petrol);margin-bottom:2px;}
+.auth-box .sub{font-size:13px;color:var(--ink-soft);margin-bottom:22px;}
+.auth-error{background:var(--bad-bg);color:var(--bad);padding:9px 12px;border-radius:3px;font-size:13px;margin-bottom:14px;}
+.auth-toggle{text-align:center;margin-top:14px;font-size:13px;color:var(--ink-soft);}
+.auth-toggle button{background:none;border:none;color:var(--petrol);font-weight:700;text-decoration:underline;}
+.full-btn{width:100%;justify-content:center;padding:11px;}
+
+/* setup screen */
+.setup-wrap{max-width:760px;margin:0 auto;padding:20px;}
+.setup-step{background:#fff;border:1px solid var(--line);border-radius:4px;padding:18px 20px;margin-bottom:14px;}
+.setup-step h4{font-size:14.5px;margin-bottom:8px;color:var(--petrol);}
+.setup-step p{margin:0 0 8px;font-size:13.5px;color:var(--ink-soft);}
+.setup-step code, pre{
+  display:block;background:#F1EEE2;border:1px solid var(--line);border-radius:3px;padding:10px 12px;
+  font-family:monospace;font-size:12.5px;white-space:pre-wrap;direction:ltr;text-align:left;color:#2C332F;
+}
+
+.toast-wrap{position:fixed;bottom:20px;left:20px;z-index:80;display:flex;flex-direction:column;gap:8px;}
+.toast{background:var(--petrol);color:#fff;padding:11px 18px;border-radius:4px;font-size:13.5px;box-shadow:0 4px 16px rgba(0,0,0,.2);}
+.toast.err{background:var(--bad);}
+.toast.ok{background:var(--good);}
+
+.spinner{width:26px;height:26px;border:3px solid rgba(0,0,0,.1);border-top-color:var(--sand);border-radius:50%;animation:spin .7s linear infinite;margin:40px auto;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+.muted{color:var(--ink-soft);}
+.locked-banner{background:var(--bad-bg);color:var(--bad);padding:10px 14px;border-radius:4px;font-size:13px;margin-bottom:16px;}
+
+@media(max-width:840px){
+  .sidebar{position:fixed;right:0;top:0;height:100vh;transform:translateX(100%);transition:transform .2s;z-index:50;}
+  .sidebar.open{transform:translateX(0);}
+  .content{padding:18px;}
+  .topbar{padding:14px 18px;}
+}
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+/* =========================================================================
+   إعداد Firebase — عدّل القيم التالية بإعدادات مشروعك من Firebase Console
+   Project Settings → General → Your apps → SDK setup and configuration
+   ========================================================================= */
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+/* ========================================================================= */
+
+const CONFIG_IS_PLACEHOLDER = firebaseConfig.apiKey === "YOUR_API_KEY";
+
+let db, auth;
+if(!CONFIG_IS_PLACEHOLDER){
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  auth = firebase.auth();
+}
+
+/* ---------------------------------------------------------------------
+   State
+--------------------------------------------------------------------- */
+const state = {
+  user:null,          // firebase auth user
+  profile:null,        // { role, name, active, email }
+  bootChecked:false,
+  usersExistFlag:null, // meta/init doc exists?
+  view:'dashboard',
+  activeTripId:null,
+  data:{
+    trips:[], clients:[], expenseCategories:[], revenues:[], expenses:[], returns:[], users:[]
+  },
+  listenersOn:false,
+  modal:null, // {entity, id|null}
+  sidebarOpen:false,
+};
+
+const MAIN_TRIP_ID = 'main-center';
+
+const ENTITIES = {
+  trips:{
+    label:'الرحلات', singular:'رحلة', col:'trips',
+    fields:[
+      {key:'name', label:'اسم الرحلة', type:'text', required:true},
+      {key:'destination', label:'الوجهة', type:'text'},
+      {key:'startDate', label:'تاريخ البداية', type:'date'},
+      {key:'endDate', label:'تاريخ النهاية', type:'date'},
+      {key:'status', label:'الحالة', type:'select', options:['قادمة','جارية','منتهية']},
+      {key:'notes', label:'ملاحظات', type:'textarea'},
+    ]
+  },
+  clients:{
+    label:'العملاء', singular:'عميل', col:'clients',
+    fields:[
+      {key:'name', label:'الاسم', type:'text', required:true},
+      {key:'phone', label:'رقم الهاتف', type:'text'},
+      {key:'email', label:'البريد الإلكتروني', type:'text'},
+      {key:'address', label:'العنوان', type:'text'},
+      {key:'notes', label:'ملاحظات', type:'textarea'},
+    ]
+  },
+  expenseCategories:{
+    label:'أقسام المصروفات', singular:'قسم مصروف', col:'expenseCategories',
+    fields:[
+      {key:'name', label:'اسم القسم', type:'text', required:true},
+      {key:'notes', label:'وصف', type:'textarea'},
+    ]
+  },
+  revenues:{
+    label:'الإيرادات', singular:'إيراد', col:'revenues',
+    fields:[
+      {key:'tripId', label:'مركز التكلفة (الرحلة)', type:'trip-select', required:true},
+      {key:'clientId', label:'العميل', type:'client-select'},
+      {key:'amount', label:'المبلغ', type:'number', required:true},
+      {key:'date', label:'التاريخ', type:'date', required:true},
+      {key:'method', label:'طريقة الدفع', type:'select', options:['نقدي','تحويل بنكي','بطاقة ائتمان','أخرى']},
+      {key:'notes', label:'ملاحظات', type:'textarea'},
+    ]
+  },
+  expenses:{
+    label:'المصروفات', singular:'مصروف', col:'expenses',
+    fields:[
+      {key:'tripId', label:'مركز التكلفة', type:'trip-select', required:true},
+      {key:'categoryId', label:'قسم المصروف', type:'category-select', required:true},
+      {key:'amount', label:'المبلغ', type:'number', required:true},
+      {key:'date', label:'التاريخ', type:'date', required:true},
+      {key:'vendor', label:'المورد / الجهة', type:'text'},
+      {key:'notes', label:'ملاحظات', type:'textarea'},
+    ]
+  },
+  returns:{
+    label:'المرتجعات', singular:'مرتجع', col:'returns',
+    fields:[
+      {key:'tripId', label:'الرحلة', type:'trip-select', required:true},
+      {key:'clientId', label:'العميل', type:'client-select'},
+      {key:'amount', label:'المبلغ', type:'number', required:true},
+      {key:'date', label:'التاريخ', type:'date', required:true},
+      {key:'reason', label:'سبب المرتجع', type:'text'},
+      {key:'notes', label:'ملاحظات', type:'textarea'},
+    ]
+  },
+};
+
+const NAV = [
+  {group:'عام', items:[
+    {view:'dashboard', label:'لوحة التحكم', icon:'grid'},
+  ]},
+  {group:'التشغيل', items:[
+    {view:'trips', label:'الرحلات ومراكز التكلفة', icon:'trip'},
+    {view:'clients', label:'العملاء', icon:'user'},
+  ]},
+  {group:'المالية', items:[
+    {view:'revenues', label:'الإيرادات', icon:'up'},
+    {view:'expenses', label:'المصروفات', icon:'down'},
+    {view:'returns', label:'المرتجعات', icon:'return'},
+    {view:'expenseCategories', label:'أقسام المصروفات', icon:'tag'},
+  ]},
+  {group:'الإدارة', items:[
+    {view:'users', label:'المستخدمون', icon:'users', adminOnly:true},
+    {view:'setup', label:'دليل الإعداد', icon:'help'},
+  ]},
+];
+
+const ICONS = {
+  grid:'<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>',
+  trip:'<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h18M3 12l4-6h4l-2 6M3 12l4 6h4l-2-6M13 6h4l4 6-4 6h-4"/></svg>',
+  user:'<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c0-3.8 3.1-6.5 7-6.5s7 2.7 7 6.5"/></svg>',
+  up:'<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 16l6-6 4 4 6-8"/><path d="M14 6h6v6"/></svg>',
+  down:'<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8l6 6 4-4 6 8"/><path d="M20 12v6h-6"/></svg>',
+  return:'<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5 4 10l5 5"/><path d="M4 10h11a5 5 0 010 10h-2"/></svg>',
+  tag:'<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 8-9 9-8-8V4h8z"/><circle cx="8" cy="8" r="1.4" fill="currentColor" stroke="none"/></svg>',
+  users:'<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3"/><path d="M2.5 20c0-3.4 2.9-5.8 6.5-5.8s6.5 2.4 6.5 5.8"/><circle cx="17" cy="8" r="2.4"/><path d="M16 14.6c2.6.4 4.5 2.4 4.5 5.4"/></svg>',
+  help:'<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 015 .5c0 1.7-2.5 2-2.5 3.8"/><circle cx="12" cy="17" r=".2" fill="currentColor"/></svg>',
+};
+
+function fmt(n){
+  n = Number(n)||0;
+  return n.toLocaleString('ar-EG',{minimumFractionDigits:0,maximumFractionDigits:2});
+}
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function uid(){ return Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
+
+function toast(msg, kind){
+  const wrap = document.getElementById('toastWrap');
+  const el = document.createElement('div');
+  el.className = 'toast' + (kind ? ' '+kind : '');
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(()=>el.remove(), 3800);
+}
+
+/* ---------------------------------------------------------------------
+   Firestore helpers
+--------------------------------------------------------------------- */
+function attachListeners(){
+  if(state.listenersOn) return;
+  state.listenersOn = true;
+  const cols = ['trips','clients','expenseCategories','revenues','expenses','returns'];
+  cols.forEach(col=>{
+    db.collection(col).onSnapshot(snap=>{
+      state.data[col] = snap.docs.map(d=>({id:d.id, ...d.data()}));
+      ensureMainTrip();
+      render();
+    }, err=>{ toast('خطأ في تحميل '+col+': '+err.message, 'err'); });
+  });
+  if(state.profile && state.profile.role==='admin'){
+    db.collection('users').onSnapshot(snap=>{
+      state.data.users = snap.docs.map(d=>({id:d.id, ...d.data()}));
+      render();
+    });
+  }
+}
+
+function ensureMainTrip(){
+  const has = state.data.trips.find(t=>t.id===MAIN_TRIP_ID);
+  if(!has && state.profile){
+    db.collection('trips').doc(MAIN_TRIP_ID).set({
+      name:'المركز الرئيسي (المصروفات العمومية)',
+      destination:'', startDate:'', endDate:'', status:'جارية',
+      notes:'مركز تكلفة ثابت للمصروفات الإدارية والعمومية غير المرتبطة برحلة محددة',
+      type:'main', createdAt: Date.now()
+    });
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Auth / bootstrap
+--------------------------------------------------------------------- */
+function initAuth(){
+  auth.onAuthStateChanged(async user=>{
+    state.user = user;
+    if(user){
+      try{
+        const docSnap = await db.collection('users').doc(user.uid).get();
+        if(docSnap.exists){
+          state.profile = docSnap.data();
+        } else {
+          state.profile = null;
+        }
+      }catch(e){ state.profile = null; }
+      attachListeners();
+    } else {
+      state.profile = null;
+      state.listenersOn = false;
+    }
+    state.bootChecked = true;
+    render();
+  });
+}
+
+async function checkFirstRun(){
+  try{
+    const metaSnap = await db.collection('meta').doc('init').get();
+    state.usersExistFlag = metaSnap.exists;
+  }catch(e){ state.usersExistFlag = true; }
+  render();
+}
+
+async function doLogin(email, pass){
+  try{
+    await auth.signInWithEmailAndPassword(email, pass);
+  }catch(e){
+    renderLoginError(mapAuthError(e));
+  }
+}
+
+async function doCreateFirstAdmin(email, pass, name){
+  try{
+    const cred = await auth.createUserWithEmailAndPassword(email, pass);
+    await db.collection('users').doc(cred.user.uid).set({
+      email, name, role:'admin', active:true, createdAt: Date.now()
+    });
+    await db.collection('meta').doc('init').set({done:true, at:Date.now()});
+    toast('تم إنشاء حساب المدير بنجاح','ok');
+  }catch(e){
+    renderLoginError(mapAuthError(e));
+  }
+}
+
+function mapAuthError(e){
+  const map = {
+    'auth/invalid-email':'صيغة البريد الإلكتروني غير صحيحة',
+    'auth/user-not-found':'لا يوجد حساب بهذا البريد الإلكتروني',
+    'auth/wrong-password':'كلمة المرور غير صحيحة',
+    'auth/invalid-credential':'بيانات الدخول غير صحيحة',
+    'auth/email-already-in-use':'هذا البريد مستخدم بالفعل',
+    'auth/weak-password':'كلمة المرور ضعيفة، يجب ألا تقل عن 6 أحرف',
+  };
+  return map[e.code] || ('حدث خطأ: '+e.message);
+}
+
+function doLogout(){
+  auth.signOut();
+}
+
+/* ---------------------------------------------------------------------
+   CRUD generic
+--------------------------------------------------------------------- */
+async function saveEntity(entityKey, id, values){
+  const conf = ENTITIES[entityKey];
+  const payload = {...values, updatedAt: Date.now()};
+  conf.fields.forEach(f=>{
+    if(f.type==='number') payload[f.key] = Number(payload[f.key])||0;
+  });
+  try{
+    if(id){
+      await db.collection(conf.col).doc(id).update(payload);
+      toast(conf.singular+' تم تحديثه بنجاح','ok');
+    } else {
+      payload.createdAt = Date.now();
+      await db.collection(conf.col).add(payload);
+      toast(conf.singular+' تمت إضافته بنجاح','ok');
+    }
+    closeModal();
+  }catch(e){
+    toast('تعذر الحفظ: '+e.message,'err');
+  }
+}
+
+async function deleteEntity(entityKey, id){
+  const conf = ENTITIES[entityKey];
+  if(id===MAIN_TRIP_ID){ toast('لا يمكن حذف مركز التكلفة الرئيسي','err'); return; }
+  if(!confirm('هل تريد بالتأكيد حذف هذا '+conf.singular+'؟ لا يمكن التراجع عن هذا الإجراء.')) return;
+  try{
+    await db.collection(conf.col).doc(id).delete();
+    toast('تم الحذف','ok');
+  }catch(e){
+    toast('تعذر الحذف: '+e.message,'err');
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Calculations
+--------------------------------------------------------------------- */
+function tripTotals(tripId){
+  const rev = state.data.revenues.filter(r=>r.tripId===tripId).reduce((s,r)=>s+Number(r.amount||0),0);
+  const exp = state.data.expenses.filter(r=>r.tripId===tripId).reduce((s,r)=>s+Number(r.amount||0),0);
+  const ret = state.data.returns.filter(r=>r.tripId===tripId).reduce((s,r)=>s+Number(r.amount||0),0);
+  return {rev, exp, ret, net: rev - exp - ret};
+}
+function grandTotals(){
+  const rev = state.data.revenues.reduce((s,r)=>s+Number(r.amount||0),0);
+  const exp = state.data.expenses.reduce((s,r)=>s+Number(r.amount||0),0);
+  const ret = state.data.returns.reduce((s,r)=>s+Number(r.amount||0),0);
+  return {rev, exp, ret, net: rev-exp-ret};
+}
+function nameOf(col, id){
+  const it = state.data[col].find(x=>x.id===id);
+  return it ? it.name : '—';
+}
+
+/* ---------------------------------------------------------------------
+   Render: shell
+--------------------------------------------------------------------- */
+function render(){
+  const root = document.getElementById('app');
+  if(!state.bootChecked || (state.user && !state.listenersOnReady)){
+    // still fine, continue
+  }
+  if(!state.user){
+    root.innerHTML = renderAuthScreen();
+    bindAuthScreen();
+    return;
+  }
+  if(state.user && state.profile===null){
+    root.innerHTML = renderPendingScreen();
+    return;
+  }
+  if(state.profile && state.profile.active===false){
+    root.innerHTML = renderDisabledScreen();
+    return;
+  }
+  root.innerHTML = renderShell();
+  bindShell();
+}
+
+function renderPendingScreen(){
+  return `
+  <div class="auth-wrap">
+    <div class="auth-box" style="text-align:center">
+      <div class="mark">لا يوجد حساب مرتبط</div>
+      <p class="sub" style="margin-top:10px">تم تسجيل الدخول ببريدك الإلكتروني، لكن لا يوجد ملف مستخدم لك في النظام بعد. تواصل مع مدير النظام لإضافتك.</p>
+      <button class="btn secondary full-btn" onclick="doLogout()">تسجيل الخروج</button>
+    </div>
+  </div>`;
+}
+function renderDisabledScreen(){
+  return `
+  <div class="auth-wrap">
+    <div class="auth-box" style="text-align:center">
+      <div class="mark">الحساب معطّل</div>
+      <p class="sub" style="margin-top:10px">تم تعطيل هذا الحساب من قِبل مدير النظام. تواصل مع الإدارة لإعادة التفعيل.</p>
+      <button class="btn secondary full-btn" onclick="doLogout()">تسجيل الخروج</button>
+    </div>
+  </div>`;
+}
+
+let authMode = 'login'; // 'login' | 'first-admin'
+
+function renderAuthScreen(){
+  if(CONFIG_IS_PLACEHOLDER){
+    return `
+    <div class="auth-wrap">
+      <div class="auth-box">
+        <div class="mark">إعداد النظام مطلوب</div>
+        <p class="sub">لم يتم ضبط بيانات مشروع Firebase بعد. افتح ملف النظام وأدخل بيانات مشروعك في أعلى كود JavaScript (firebaseConfig)، أو راجع دليل الإعداد المرفق.</p>
+      </div>
+    </div>`;
+  }
+  const showFirstAdmin = state.usersExistFlag===false;
+  return `
+  <div class="auth-wrap">
+    <div class="auth-box">
+      <div class="mark">مكتب الرحلات السياحية</div>
+      <div class="sub">نظام المحاسبة الداخلي</div>
+      <div id="authErrorBox"></div>
+      ${authMode==='login' ? `
+        <form id="loginForm">
+          <div class="field"><label>البريد الإلكتروني</label><input type="email" name="email" required></div>
+          <div class="field"><label>كلمة المرور</label><input type="password" name="password" required></div>
+          <button class="btn full-btn" type="submit">تسجيل الدخول</button>
+        </form>
+        ${showFirstAdmin!==false ? `<div class="auth-toggle">لا يوجد مدير مسجل بعد؟ <button id="toFirstAdmin">إنشاء حساب المدير الأول</button></div>` : ''}
+      ` : `
+        <form id="firstAdminForm">
+          <div class="help-note">بما أنه لا يوجد أي مستخدم مسجل في النظام حتى الآن، سيصبح هذا الحساب هو حساب المدير الرئيسي تلقائيًا.</div>
+          <div class="field"><label>الاسم</label><input type="text" name="name" required></div>
+          <div class="field"><label>البريد الإلكتروني</label><input type="email" name="email" required></div>
+          <div class="field"><label>كلمة المرور</label><input type="password" name="password" minlength="6" required></div>
+          <button class="btn accent full-btn" type="submit">إنشاء حساب المدير</button>
+        </form>
+        <div class="auth-toggle"><button id="toLogin">عندي حساب بالفعل — تسجيل الدخول</button></div>
+      `}
+    </div>
+  </div>`;
+}
+
+function renderLoginError(msg){
+  const box = document.getElementById('authErrorBox');
+  if(box) box.innerHTML = `<div class="auth-error">${msg}</div>`;
+}
+
+function bindAuthScreen(){
+  if(CONFIG_IS_PLACEHOLDER) return;
+  if(state.usersExistFlag===null){ checkFirstRun(); }
+  const loginForm = document.getElementById('loginForm');
+  if(loginForm){
+    loginForm.addEventListener('submit', e=>{
+      e.preventDefault();
+      const fd = new FormData(loginForm);
+      doLogin(fd.get('email'), fd.get('password'));
+    });
+  }
+  const firstAdminForm = document.getElementById('firstAdminForm');
+  if(firstAdminForm){
+    firstAdminForm.addEventListener('submit', e=>{
+      e.preventDefault();
+      const fd = new FormData(firstAdminForm);
+      doCreateFirstAdmin(fd.get('email'), fd.get('password'), fd.get('name'));
+    });
+  }
+  const toFirstAdmin = document.getElementById('toFirstAdmin');
+  if(toFirstAdmin) toFirstAdmin.addEventListener('click', ()=>{ authMode='first-admin'; render(); });
+  const toLogin = document.getElementById('toLogin');
+  if(toLogin) toLogin.addEventListener('click', ()=>{ authMode='login'; render(); });
+}
+
+/* ---------------------------------------------------------------------
+   Render: app shell
+--------------------------------------------------------------------- */
+function renderShell(){
+  return `
+  <div id="app-inner" style="display:flex;width:100%">
+    <aside class="sidebar ${state.sidebarOpen?'open':''}">
+      <div class="sidebar-brand">
+        <div class="mark">مكتب الرحلات</div>
+        <div class="sub">نظام المحاسبة الداخلي</div>
+      </div>
+      <nav class="nav">
+        ${NAV.map(group=>`
+          <div class="nav-group-label">${group.group}</div>
+          ${group.items.filter(it=> !it.adminOnly || (state.profile && state.profile.role==='admin')).map(it=>`
+            <button class="nav-item ${state.view===it.view?'active':''}" data-view="${it.view}">
+              ${ICONS[it.icon]}<span>${it.label}</span>
+            </button>
+          `).join('')}
+        `).join('')}
+      </nav>
+      <div class="sidebar-foot">
+        <div class="who">${state.profile ? (state.profile.name || state.profile.email) : ''}</div>
+        <div>${state.profile && state.profile.role==='admin' ? 'مدير النظام' : 'مستخدم'}</div>
+        <button id="logoutBtn">تسجيل الخروج</button>
+      </div>
+    </aside>
+    <div class="main">
+      <div class="topbar">
+        <div>
+          <h1>${pageTitle()}</h1>
+          <div class="sub">${pageSubtitle()}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn secondary small" id="exportAllBtn">⬇ تصدير تقرير شامل</button>
+        </div>
+      </div>
+      <div class="content" id="contentArea">
+        ${renderView()}
+      </div>
+    </div>
+  </div>
+  ${state.modal ? renderModal() : ''}
+  `;
+}
+
+function pageTitle(){
+  const found = NAV.flatMap(g=>g.items).find(i=>i.view===state.view);
+  return found ? found.label : 'لوحة التحكم';
+}
+function pageSubtitle(){
+  const subs = {
+    dashboard:'نظرة عامة على أداء جميع الرحلات ماليًا',
+    trips:'كل رحلة تمثل مركز تكلفة مستقل بإيراداته ومصروفاته الخاصة',
+    clients:'قاعدة بيانات العملاء المرتبطين بالرحلات',
+    revenues:'كل الإيرادات المسجّلة على الرحلات',
+    expenses:'كل المصروفات المسجّلة على الرحلات ومركز التكلفة الرئيسي',
+    returns:'المبالغ المستردة للعملاء',
+    expenseCategories:'تصنيفات المصروفات — يمكن إضافة أقسام جديدة حسب الحاجة',
+    users:'إدارة مستخدمي النظام وصلاحياتهم',
+    setup:'خطوات ربط النظام بمشروع Firebase الخاص بك',
+  };
+  return subs[state.view] || '';
+}
+
+function bindShell(){
+  document.querySelectorAll('.nav-item').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      state.view = btn.dataset.view;
+      state.sidebarOpen = false;
+      render();
+    });
+  });
+  const logoutBtn = document.getElementById('logoutBtn');
+  if(logoutBtn) logoutBtn.addEventListener('click', doLogout);
+  const exportAllBtn = document.getElementById('exportAllBtn');
+  if(exportAllBtn) exportAllBtn.addEventListener('click', exportFullReport);
+  bindViewEvents();
+}
+
+/* ---------------------------------------------------------------------
+   Render: views router
+--------------------------------------------------------------------- */
+function renderView(){
+  switch(state.view){
+    case 'dashboard': return renderDashboard();
+    case 'trips': return renderTrips();
+    case 'clients': return renderGenericList('clients');
+    case 'revenues': return renderGenericList('revenues');
+    case 'expenses': return renderGenericList('expenses');
+    case 'returns': return renderGenericList('returns');
+    case 'expenseCategories': return renderGenericList('expenseCategories');
+    case 'users': return renderUsers();
+    case 'setup': return renderSetupGuide();
+    default: return renderDashboard();
+  }
+}
+function bindViewEvents(){
+  switch(state.view){
+    case 'dashboard': return bindDashboard();
+    case 'trips': return bindTrips();
+    case 'clients': return bindGenericList('clients');
+    case 'revenues': return bindGenericList('revenues');
+    case 'expenses': return bindGenericList('expenses');
+    case 'returns': return bindGenericList('returns');
+    case 'expenseCategories': return bindGenericList('expenseCategories');
+    case 'users': return bindUsers();
+    case 'setup': return;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Dashboard
+--------------------------------------------------------------------- */
+function renderDashboard(){
+  const g = grandTotals();
+  const trips = state.data.trips.slice().sort((a,b)=> (a.id===MAIN_TRIP_ID? -1 : b.id===MAIN_TRIP_ID? 1 : (a.createdAt||0)-(b.createdAt||0)) );
+  return `
+    <div class="stat-row">
+      <div class="stat"><div class="label">إجمالي الإيرادات</div><div class="value good">${fmt(g.rev)}</div></div>
+      <div class="stat"><div class="label">إجمالي المصروفات</div><div class="value bad">${fmt(g.exp)}</div></div>
+      <div class="stat"><div class="label">إجمالي المرتجعات</div><div class="value bad">${fmt(g.ret)}</div></div>
+      <div class="stat"><div class="label">صافي الربح</div><div class="value ${g.net>=0?'good':'bad'}">${fmt(g.net)}</div></div>
+    </div>
+    <div class="section-head"><h2>أداء الرحلات ومراكز التكلفة</h2></div>
+    <div class="trip-grid">
+      ${trips.length ? trips.map(t=>{
+        const tt = tripTotals(t.id);
+        const isMain = t.id===MAIN_TRIP_ID;
+        return `
+        <div class="trip-card ${isMain?'main':'status-'+(t.status||'')}" data-open-trip="${t.id}">
+          <h3>${escapeHtml(t.name)}</h3>
+          <div class="dest">${isMain ? 'مركز تكلفة رئيسي' : escapeHtml(t.destination||'—')}
+            ${!isMain && t.status ? `<span class="badge ${t.status}">${t.status}</span>` : ''}
+          </div>
+          <div class="line"><span class="l">الإيرادات</span><span class="num">${fmt(tt.rev)}</span></div>
+          <div class="line"><span class="l">المصروفات</span><span class="num">${fmt(tt.exp)}</span></div>
+          <div class="line"><span class="l">المرتجعات</span><span class="num">${fmt(tt.ret)}</span></div>
+          <div class="net"><span>الصافي</span><span class="num ${tt.net>=0?'':'muted'}" style="color:${tt.net>=0?'var(--good)':'var(--bad)'}">${fmt(tt.net)}</span></div>
+        </div>`;
+      }).join('') : `<div class="muted">لا توجد رحلات بعد — أضف أول رحلة من قسم "الرحلات"</div>`}
+    </div>
+  `;
+}
+function bindDashboard(){
+  document.querySelectorAll('[data-open-trip]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      state.view='trips'; state.activeTripId = el.dataset.openTrip; render();
+    });
+  });
+}
+
+/* ---------------------------------------------------------------------
+   Trips view (with detail drill-down)
+--------------------------------------------------------------------- */
+function renderTrips(){
+  if(state.activeTripId){
+    return renderTripDetail(state.activeTripId);
+  }
+  const trips = state.data.trips.slice().sort((a,b)=> (a.id===MAIN_TRIP_ID? -1 : b.id===MAIN_TRIP_ID? 1 : (a.createdAt||0)-(b.createdAt||0)) );
+  return `
+    <div class="section-head">
+      <h2>كل الرحلات</h2>
+      <div class="actions"><button class="btn accent" id="addTripBtn">+ إضافة رحلة جديدة</button></div>
+    </div>
+    <div class="trip-grid">
+      ${trips.map(t=>{
+        const tt = tripTotals(t.id);
+        const isMain = t.id===MAIN_TRIP_ID;
+        return `
+        <div class="trip-card ${isMain?'main':'status-'+(t.status||'')}" data-open-trip="${t.id}">
+          <h3>${escapeHtml(t.name)}</h3>
+          <div class="dest">${isMain ? 'مركز تكلفة رئيسي · غير قابل للحذف' : escapeHtml(t.destination||'—')}
+            ${!isMain && t.status ? `<span class="badge ${t.status}">${t.status}</span>` : ''}
+          </div>
+          <div class="line"><span class="l">الإيرادات</span><span class="num">${fmt(tt.rev)}</span></div>
+          <div class="line"><span class="l">المصروفات</span><span class="num">${fmt(tt.exp)}</span></div>
+          <div class="net"><span>الصافي</span><span class="num" style="color:${tt.net>=0?'var(--good)':'var(--bad)'}">${fmt(tt.net)}</span></div>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+function renderTripDetail(tripId){
+  const t = state.data.trips.find(x=>x.id===tripId);
+  if(!t){ state.activeTripId=null; return renderTrips(); }
+  const isMain = t.id===MAIN_TRIP_ID;
+  const tt = tripTotals(tripId);
+  const revs = state.data.revenues.filter(r=>r.tripId===tripId);
+  const exps = state.data.expenses.filter(r=>r.tripId===tripId);
+  const rets = state.data.returns.filter(r=>r.tripId===tripId);
+  return `
+    <button class="btn secondary small" id="backToTrips" style="margin-bottom:16px">→ الرجوع لكل الرحلات</button>
+    <div class="card card-pad" style="margin-bottom:20px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
+        <div>
+          <h2 style="font-size:19px">${escapeHtml(t.name)}</h2>
+          <div class="muted" style="font-size:13px;margin-top:4px">${isMain? 'مركز تكلفة رئيسي' : escapeHtml(t.destination||'')} ${t.startDate? '· '+t.startDate+(t.endDate?' — '+t.endDate:'') : ''}</div>
+          ${t.notes? `<div class="muted" style="font-size:13px;margin-top:8px">${escapeHtml(t.notes)}</div>`:''}
+        </div>
+        ${!isMain ? `<div class="row-actions">
+          <button class="icon-btn" data-edit-trip="${t.id}">تعديل</button>
+          <button class="icon-btn danger" data-del-trip="${t.id}">حذف</button>
+        </div>` : `<div class="row-actions"><button class="icon-btn" data-edit-trip="${t.id}">تعديل الملاحظات</button></div>`}
+      </div>
+      <div class="stat-row" style="margin-top:18px;margin-bottom:0">
+        <div class="stat"><div class="label">الإيرادات</div><div class="value good">${fmt(tt.rev)}</div></div>
+        <div class="stat"><div class="label">المصروفات</div><div class="value bad">${fmt(tt.exp)}</div></div>
+        <div class="stat"><div class="label">المرتجعات</div><div class="value bad">${fmt(tt.ret)}</div></div>
+        <div class="stat"><div class="label">الصافي</div><div class="value ${tt.net>=0?'good':'bad'}">${fmt(tt.net)}</div></div>
+      </div>
+    </div>
+
+    <div class="section-head"><h2>الإيرادات (${revs.length})</h2><div class="actions"><button class="btn small accent" data-quick-add="revenues">+ إضافة إيراد</button></div></div>
+    ${miniTable('revenues', revs)}
+
+    <div class="section-head" style="margin-top:26px"><h2>المصروفات (${exps.length})</h2><div class="actions"><button class="btn small accent" data-quick-add="expenses">+ إضافة مصروف</button></div></div>
+    ${miniTable('expenses', exps)}
+
+    ${!isMain ? `
+    <div class="section-head" style="margin-top:26px"><h2>المرتجعات (${rets.length})</h2><div class="actions"><button class="btn small accent" data-quick-add="returns">+ إضافة مرتجع</button></div></div>
+    ${miniTable('returns', rets)}
+    ` : ''}
+  `;
+}
+function miniTable(entityKey, rows){
+  if(!rows.length) return `<div class="card"><table><tbody><tr class="empty-row"><td>لا توجد بيانات بعد</td></tr></tbody></table></div>`;
+  const conf = ENTITIES[entityKey];
+  const cols = conf.fields.filter(f=>f.key!=='tripId');
+  return `<div class="card"><table>
+    <thead><tr>${cols.map(c=>`<th>${c.label}</th>`).join('')}<th></th></tr></thead>
+    <tbody>${rows.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(row=>`
+      <tr>${cols.map(c=>`<td>${renderCellValue(c, row)}</td>`).join('')}
+      <td class="row-actions">
+        <button class="icon-btn" data-edit="${entityKey}:${row.id}">تعديل</button>
+        <button class="icon-btn danger" data-del="${entityKey}:${row.id}">حذف</button>
+      </td></tr>
+    `).join('')}</tbody>
+  </table></div>`;
+}
+function renderCellValue(field, row){
+  const v = row[field.key];
+  if(field.type==='client-select') return escapeHtml(nameOf('clients', v) || '—');
+  if(field.type==='category-select') return escapeHtml(nameOf('expenseCategories', v) || '—');
+  if(field.type==='number') return `<span class="num">${fmt(v)}</span>`;
+  return escapeHtml(v||'—');
+}
+
+function bindTrips(){
+  const addBtn = document.getElementById('addTripBtn');
+  if(addBtn) addBtn.addEventListener('click', ()=> openModal('trips', null));
+  document.querySelectorAll('[data-open-trip]').forEach(el=>{
+    el.addEventListener('click', ()=>{ state.activeTripId = el.dataset.openTrip; render(); });
+  });
+  const back = document.getElementById('backToTrips');
+  if(back) back.addEventListener('click', ()=>{ state.activeTripId=null; render(); });
+  document.querySelectorAll('[data-edit-trip]').forEach(el=>{
+    el.addEventListener('click', ()=> openModal('trips', el.dataset.editTrip));
+  });
+  document.querySelectorAll('[data-del-trip]').forEach(el=>{
+    el.addEventListener('click', ()=> deleteEntity('trips', el.dataset.delTrip));
+  });
+  document.querySelectorAll('[data-quick-add]').forEach(el=>{
+    el.addEventListener('click', ()=> openModal(el.dataset.quickAdd, null, {tripId: state.activeTripId}));
+  });
+  document.querySelectorAll('[data-edit]').forEach(el=>{
+    const [entity,id] = el.dataset.edit.split(':');
+    el.addEventListener('click', ()=> openModal(entity, id));
+  });
+  document.querySelectorAll('[data-del]').forEach(el=>{
+    const [entity,id] = el.dataset.del.split(':');
+    el.addEventListener('click', ()=> deleteEntity(entity, id));
+  });
+}
+
+/* ---------------------------------------------------------------------
+   Generic list views (clients, revenues, expenses, returns, categories)
+--------------------------------------------------------------------- */
+function renderGenericList(entityKey){
+  const conf = ENTITIES[entityKey];
+  const rows = state.data[conf.col].slice().sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  return `
+    <div class="section-head">
+      <h2>${conf.label} (${rows.length})</h2>
+      <div class="actions">
+        <button class="btn secondary small" data-export="${entityKey}">⬇ تصدير إكسيل</button>
+        <button class="btn accent" id="addEntityBtn">+ إضافة ${conf.singular}</button>
+      </div>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr>${conf.fields.map(f=>`<th>${f.label}</th>`).join('')}<th></th></tr></thead>
+        <tbody>
+          ${rows.length ? rows.map(row=>`
+            <tr>${conf.fields.map(f=>`<td>${renderCellValue(f,row)}</td>`).join('')}
+              <td class="row-actions">
+                <button class="icon-btn" data-edit="${entityKey}:${row.id}">تعديل</button>
+                <button class="icon-btn danger" data-del="${entityKey}:${row.id}">حذف</button>
+              </td>
+            </tr>
+          `).join('') : `<tr class="empty-row"><td colspan="${conf.fields.length+1}">لا توجد بيانات بعد — أضف أول ${conf.singular}</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+function bindGenericList(entityKey){
+  const addBtn = document.getElementById('addEntityBtn');
+  if(addBtn) addBtn.addEventListener('click', ()=> openModal(entityKey, null));
+  document.querySelectorAll('[data-edit]').forEach(el=>{
+    const [entity,id] = el.dataset.edit.split(':');
+    el.addEventListener('click', ()=> openModal(entity, id));
+  });
+  document.querySelectorAll('[data-del]').forEach(el=>{
+    const [entity,id] = el.dataset.del.split(':');
+    el.addEventListener('click', ()=> deleteEntity(entity, id));
+  });
+  document.querySelectorAll('[data-export]').forEach(el=>{
+    el.addEventListener('click', ()=> exportEntity(el.dataset.export));
+  });
+}
+
+/* ---------------------------------------------------------------------
+   Modal / form
+--------------------------------------------------------------------- */
+function openModal(entityKey, id, prefill){
+  state.modal = {entityKey, id, prefill: prefill||{}};
+  render();
+}
+function closeModal(){
+  state.modal = null;
+  render();
+}
+function renderModal(){
+  const {entityKey, id, prefill} = state.modal;
+  const conf = ENTITIES[entityKey];
+  const editing = id ? state.data[conf.col].find(x=>x.id===id) : null;
+  const isMainTrip = entityKey==='trips' && id===MAIN_TRIP_ID;
+  return `
+  <div class="overlay" id="modalOverlay">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>${editing? 'تعديل ' : 'إضافة '}${conf.singular}</h3>
+        <button class="modal-close" id="modalCloseBtn">×</button>
+      </div>
+      <form id="entityForm">
+        <div class="modal-body">
+          ${conf.fields.map(f=>renderField(f, editing, prefill, isMainTrip)).join('')}
+        </div>
+        <div class="modal-foot">
+          <button type="submit" class="btn accent">${editing?'حفظ التعديلات':'إضافة'}</button>
+          <button type="button" class="btn secondary" id="modalCancelBtn">إلغاء</button>
+        </div>
+      </form>
+    </div>
+  </div>`;
+}
+function renderField(f, editing, prefill, isMainTrip){
+  const val = editing ? (editing[f.key] ?? '') : (prefill[f.key] ?? '');
+  const disabled = (isMainTrip && (f.key==='name' || f.key==='status')) ? 'disabled' : '';
+  if(f.type==='textarea'){
+    return `<div class="field"><label>${f.label}</label><textarea name="${f.key}" ${disabled}>${escapeHtml(val)}</textarea></div>`;
+  }
+  if(f.type==='select'){
+    return `<div class="field"><label>${f.label}</label>
+      <select name="${f.key}" ${disabled}>
+        <option value="">— اختر —</option>
+        ${f.options.map(o=>`<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join('')}
+      </select></div>`;
+  }
+  if(f.type==='trip-select'){
+    const trips = state.data.trips.slice().sort((a,b)=> a.id===MAIN_TRIP_ID?-1:1);
+    return `<div class="field"><label>${f.label}</label>
+      <select name="${f.key}" ${prefill.tripId?'':''} required>
+        <option value="">— اختر —</option>
+        ${trips.map(t=>`<option value="${t.id}" ${val===t.id?'selected':''}>${escapeHtml(t.name)}</option>`).join('')}
+      </select></div>`;
+  }
+  if(f.type==='client-select'){
+    return `<div class="field"><label>${f.label}</label>
+      <select name="${f.key}">
+        <option value="">— بدون —</option>
+        ${state.data.clients.map(c=>`<option value="${c.id}" ${val===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
+      </select></div>`;
+  }
+  if(f.type==='category-select'){
+    return `<div class="field"><label>${f.label}</label>
+      <select name="${f.key}" required>
+        <option value="">— اختر —</option>
+        ${state.data.expenseCategories.map(c=>`<option value="${c.id}" ${val===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}
+      </select>
+      ${!state.data.expenseCategories.length? '<div class="field-error">لا توجد أقسام مصروفات بعد، أضف قسمًا أولاً من صفحة "أقسام المصروفات"</div>':''}
+      </div>`;
+  }
+  return `<div class="field"><label>${f.label}</label><input type="${f.type}" name="${f.key}" value="${escapeHtml(val)}" ${f.required?'required':''} ${disabled} ${f.type==='number'?'step="0.01"':''}></div>`;
+}
+function bindModalEvents(){
+  const overlay = document.getElementById('modalOverlay');
+  if(!overlay) return;
+  document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+  document.getElementById('modalCancelBtn').addEventListener('click', closeModal);
+  overlay.addEventListener('click', e=>{ if(e.target===overlay) closeModal(); });
+  const form = document.getElementById('entityForm');
+  form.addEventListener('submit', e=>{
+    e.preventDefault();
+    const {entityKey, id} = state.modal;
+    const conf = ENTITIES[entityKey];
+    const fd = new FormData(form);
+    const values = {};
+    conf.fields.forEach(f=>{ values[f.key] = fd.get(f.key) || ''; });
+    if(entityKey==='trips' && id===MAIN_TRIP_ID){
+      const existing = state.data.trips.find(x=>x.id===MAIN_TRIP_ID);
+      values.name = existing.name; values.status = existing.status;
+    }
+    saveEntity(entityKey, id, values);
+  });
+}
+
+/* ---------------------------------------------------------------------
+   Users / admin panel
+--------------------------------------------------------------------- */
+function renderUsers(){
+  if(!state.profile || state.profile.role!=='admin'){
+    return `<div class="card card-pad">هذه الصفحة متاحة لمدير النظام فقط.</div>`;
+  }
+  const users = state.data.users.slice().sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  return `
+    <div class="help-note">
+      إنشاء مستخدم جديد هنا يُنشئ له حسابًا فعليًا في نظام الدخول (Firebase Authentication) بالإضافة إلى صلاحيته. حذف المستخدم من هذه القائمة يزيل صلاحيته من النظام فقط، ولا يحذف حساب الدخول نفسه؛ لحذف الحساب نهائيًا استخدم Firebase Console.
+    </div>
+    <div class="section-head">
+      <h2>المستخدمون (${users.length})</h2>
+      <div class="actions"><button class="btn accent" id="addUserBtn">+ إضافة مستخدم</button></div>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr><th>الاسم</th><th>البريد الإلكتروني</th><th>الصلاحية</th><th>الحالة</th><th></th></tr></thead>
+        <tbody>
+          ${users.length? users.map(u=>`
+            <tr>
+              <td>${escapeHtml(u.name||'—')}</td>
+              <td>${escapeHtml(u.email||'—')}</td>
+              <td>
+                <select data-role-user="${u.id}" ${u.id===state.user.uid?'disabled':''}>
+                  <option value="admin" ${u.role==='admin'?'selected':''}>مدير</option>
+                  <option value="employee" ${u.role==='employee'?'selected':''}>موظف</option>
+                </select>
+              </td>
+              <td>${u.active===false? '<span class="badge منتهية">معطّل</span>' : '<span class="badge جارية">نشط</span>'}</td>
+              <td class="row-actions">
+                <button class="icon-btn" data-toggle-active="${u.id}" ${u.id===state.user.uid?'disabled':''}>${u.active===false?'تفعيل':'تعطيل'}</button>
+                <button class="icon-btn danger" data-del-user="${u.id}" ${u.id===state.user.uid?'disabled':''}>حذف</button>
+              </td>
+            </tr>
+          `).join('') : `<tr class="empty-row"><td colspan="5">لا يوجد مستخدمون بعد</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+    ${state.userModal? renderUserModal(): ''}
+  `;
+}
+let userModalOpen = false;
+function bindUsers(){
+  const addBtn = document.getElementById('addUserBtn');
+  if(addBtn) addBtn.addEventListener('click', ()=>{ state.userModal=true; render(); });
+  document.querySelectorAll('[data-role-user]').forEach(el=>{
+    el.addEventListener('change', ()=>{
+      db.collection('users').doc(el.dataset.roleUser).update({role: el.value})
+        .then(()=>toast('تم تحديث الصلاحية','ok')).catch(e=>toast(e.message,'err'));
+    });
+  });
+  document.querySelectorAll('[data-toggle-active]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const u = state.data.users.find(x=>x.id===el.dataset.toggleActive);
+      db.collection('users').doc(u.id).update({active: u.active===false ? true : false})
+        .then(()=>toast('تم التحديث','ok'));
+    });
+  });
+  document.querySelectorAll('[data-del-user]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      if(!confirm('سيتم حذف صلاحية هذا المستخدم من النظام (دون حذف حساب الدخول). متابعة؟')) return;
+      db.collection('users').doc(el.dataset.delUser).delete().then(()=>toast('تم الحذف','ok'));
+    });
+  });
+  bindUserModal();
+}
+function renderUserModal(){
+  return `
+  <div class="overlay" id="userModalOverlay">
+    <div class="modal">
+      <div class="modal-head"><h3>إضافة مستخدم جديد</h3><button class="modal-close" id="userModalClose">×</button></div>
+      <form id="userForm">
+        <div class="modal-body">
+          <div class="field"><label>الاسم</label><input type="text" name="name" required></div>
+          <div class="field"><label>البريد الإلكتروني</label><input type="email" name="email" required></div>
+          <div class="field"><label>كلمة مرور مؤقتة</label><input type="password" name="password" minlength="6" required></div>
+          <div class="field"><label>الصلاحية</label>
+            <select name="role"><option value="employee">موظف</option><option value="admin">مدير</option></select>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button type="submit" class="btn accent">إنشاء المستخدم</button>
+          <button type="button" class="btn secondary" id="userModalCancel">إلغاء</button>
+        </div>
+      </form>
+    </div>
+  </div>`;
+}
+function bindUserModal(){
+  if(!state.userModal) return;
+  const overlay = document.getElementById('userModalOverlay');
+  if(!overlay) return;
+  document.getElementById('userModalClose').addEventListener('click', ()=>{state.userModal=false; render();});
+  document.getElementById('userModalCancel').addEventListener('click', ()=>{state.userModal=false; render();});
+  overlay.addEventListener('click', e=>{ if(e.target===overlay){state.userModal=false; render();} });
+  document.getElementById('userForm').addEventListener('submit', async e=>{
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const name = fd.get('name'), email = fd.get('email'), password = fd.get('password'), role = fd.get('role');
+    try{
+      const secondaryApp = firebase.initializeApp(firebaseConfig, 'Secondary_'+Date.now());
+      const cred = await secondaryApp.auth().createUserWithEmailAndPassword(email, password);
+      await db.collection('users').doc(cred.user.uid).set({
+        email, name, role, active:true, createdAt: Date.now()
+      });
+      await secondaryApp.auth().signOut();
+      await secondaryApp.delete();
+      toast('تم إنشاء المستخدم بنجاح','ok');
+      state.userModal = false;
+      render();
+    }catch(err){
+      toast('تعذر إنشاء المستخدم: '+mapAuthError(err), 'err');
+    }
+  });
+}
+
+/* ---------------------------------------------------------------------
+   Setup guide
+--------------------------------------------------------------------- */
+function renderSetupGuide(){
+  return `
+  <div class="setup-wrap">
+    <div class="setup-step">
+      <h4>1) إنشاء مشروع Firebase</h4>
+      <p>افتح console.firebase.google.com وأنشئ مشروعًا جديدًا (مجانًا). فعّل Cloud Firestore من قسم Build، واخترArtifact وضع production أو test حسب رغبتك.</p>
+    </div>
+    <div class="setup-step">
+      <h4>2) تفعيل تسجيل الدخول بالبريد وكلمة المرور</h4>
+      <p>من قسم Authentication → Sign-in method، فعّل مزوّد "Email/Password".</p>
+    </div>
+    <div class="setup-step">
+      <h4>3) نسخ بيانات الإعداد إلى الملف</h4>
+      <p>من Project Settings → عام → Your apps، أنشئ تطبيق ويب وانسخ الكائن التالي إلى أعلى كود الصفحة (متغيّر firebaseConfig):</p>
+      <pre>const firebaseConfig = {
+  apiKey: "...",
+  authDomain: "...",
+  projectId: "...",
+  storageBucket: "...",
+  messagingSenderId: "...",
+  appId: "..."
+};</pre>
+    </div>
+    <div class="setup-step">
+      <h4>4) قواعد الأمان المقترحة لـ Firestore</h4>
+      <p>الصق هذه القواعد في Firestore → Rules، وعدّلها لاحقًا حسب الحاجة:</p>
+      <pre>rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() { return request.auth != null; }
+    function myProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    function isActiveUser() { return isSignedIn() && myProfile().active == true; }
+    function isAdmin() { return isSignedIn() && myProfile().role == 'admin'; }
+
+    match /meta/{doc} {
+      allow read: if true;
+      allow write: if isActiveUser();
+    }
+    match /users/{userId} {
+      allow read: if isActiveUser();
+      allow create: if isAdmin() || !exists(/databases/$(database)/documents/meta/init);
+      allow update, delete: if isAdmin();
+    }
+    match /{col}/{docId} {
+      allow read, write: if isActiveUser();
+    }
+  }
+}</pre>
+    </div>
+    <div class="setup-step">
+      <h4>5) أول تشغيل</h4>
+      <p>افتح الصفحة بعد حفظ الإعدادات، واضغط "إنشاء حساب المدير الأول" لتسجيل أول مستخدم كمدير للنظام. بعدها يمكنك إضافة بقية المستخدمين من صفحة "المستخدمون".</p>
+    </div>
+    <div class="setup-step">
+      <h4>6) الاستضافة</h4>
+      <p>هذا ملف HTML واحد مستقل، يمكنك رفعه على أي استضافة (Firebase Hosting، أو أي خادم آخر)، أو فتحه مباشرة من جهازك.</p>
+    </div>
+  </div>`;
+}
+
+/* ---------------------------------------------------------------------
+   Excel export
+--------------------------------------------------------------------- */
+function exportEntity(entityKey){
+  const conf = ENTITIES[entityKey];
+  const rows = state.data[conf.col];
+  const data = rows.map(r=>{
+    const o = {};
+    conf.fields.forEach(f=>{
+      let v = r[f.key];
+      if(f.type==='client-select') v = nameOf('clients', v);
+      if(f.type==='category-select') v = nameOf('expenseCategories', v);
+      if(f.type==='trip-select') v = nameOf('trips', v);
+      o[f.label] = v;
+    });
+    return o;
+  });
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, conf.label.slice(0,28));
+  XLSX.writeFile(wb, conf.label+'.xlsx');
+}
+function exportFullReport(){
+  const wb = XLSX.utils.book_new();
+  const tripsSummary = state.data.trips.map(t=>{
+    const tt = tripTotals(t.id);
+    return {'الرحلة': t.name, 'الوجهة': t.destination||'', 'الحالة': t.status||'', 'الإيرادات': tt.rev, 'المصروفات': tt.exp, 'المرتجعات': tt.ret, 'الصافي': tt.net};
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(tripsSummary), 'ملخص الرحلات');
+  Object.keys(ENTITIES).forEach(key=>{
+    if(key==='trips') return;
+    const conf = ENTITIES[key];
+    const data = state.data[conf.col].map(r=>{
+      const o = {};
+      conf.fields.forEach(f=>{
+        let v = r[f.key];
+        if(f.type==='client-select') v = nameOf('clients', v);
+        if(f.type==='category-select') v = nameOf('expenseCategories', v);
+        if(f.type==='trip-select') v = nameOf('trips', v);
+        o[f.label] = v;
+      });
+      return o;
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), conf.label.slice(0,28));
+  });
+  XLSX.writeFile(wb, 'تقرير_شامل.xlsx');
+}
+
+/* ---------------------------------------------------------------------
+   Utils
+--------------------------------------------------------------------- */
+function escapeHtml(s){
+  return String(s??'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+/* patch render() to bind modal events after paint */
+const _origRender = render;
+render = function(){
+  _origRender();
+  bindModalEvents();
+};
+
+/* ---------------------------------------------------------------------
+   Boot
+--------------------------------------------------------------------- */
+if(CONFIG_IS_PLACEHOLDER){
+  render();
+} else {
+  initAuth();
+  checkFirstRun();
+}
+</script>
+</body>
+</html>
